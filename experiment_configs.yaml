@@ -4,7 +4,7 @@
 
 
 experiment_1:
-  description: "Baseline — small dataset, high LR"
+  description: "Exp1 - Baseline — small dataset, high LR"
   train_samples: 1000
   val_samples: 100
   epochs: 3
@@ -21,7 +21,7 @@ experiment_1:
    
 
 experiment_2:
-  description: "training with more data, fixed LR, fixed prompt"
+  description: "Exp2 - Training with more data, fixed LR, fixed prompt"
   train_samples: 3000
   val_samples: 250
   epochs: 5
@@ -38,7 +38,7 @@ experiment_2:
     notes: "Stable training, major improvement from prompt fix"
 
 experiment_3:
-  description: "Final training with more data, same config as exp 2"
+  description: "Exp3 - Final training with more data, same config as exp2"
   train_samples: 5000
   val_samples: 500
   epochs: 7  # epoch 7 timed out (12hr Kaggle limit)
