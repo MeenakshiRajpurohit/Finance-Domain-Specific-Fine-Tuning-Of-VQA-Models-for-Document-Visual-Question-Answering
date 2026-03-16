@@ -1,0 +1,56 @@
+
+# Qwen2-VL-2B Financial Document VQA — Experiment Configurations
+# Final best result: Token F1 51.7% and BERTScore 86.9%
+
+
+experiment_1:
+  description: "Baseline — small dataset, high LR"
+  train_samples: 1000
+  val_samples: 100
+  epochs: 3
+  learning_rate: 1.0e-4
+  max_seq_len: 512
+  lora_r: 8
+  lora_alpha: 16
+  lora_target_modules: ["q_proj", "v_proj"]
+  prompt: "image_and_orc"
+  result:
+    val_loss: 1.595
+    token_f1: "~35%"
+    bertscore_f1: null
+   
+
+experiment_2:
+  description: "training with more data, fixed LR, fixed prompt"
+  train_samples: 3000
+  val_samples: 250
+  epochs: 5
+  learning_rate: 5.0e-6
+  max_seq_len: 1024
+  lora_r: 16
+  lora_alpha: 32
+  lora_target_modules: ["q_proj", "k_proj", "v_proj", "o_proj"]
+  prompt: "image_and_ocr"
+  result:
+    val_loss: 1.295
+    token_f1: "42.4%"
+    bertscore_f1: "83.5%"
+    notes: "Stable training, major improvement from prompt fix"
+
+experiment_3:
+  description: "Final training with more data, same config as exp 2"
+  train_samples: 5000
+  val_samples: 500
+  epochs: 7  # epoch 7 timed out (12hr Kaggle limit)
+  learning_rate: 5.0e-6
+  max_seq_len: 1024
+  lora_r: 16
+  lora_alpha: 32
+  lora_target_modules: ["q_proj", "k_proj", "v_proj", "o_proj"]
+  prompt: "image_and_ocr"
+  result:
+    val_loss: 1.149  # best at epoch 6
+    token_f1: "51.7%" # evaluated on 250 samples
+    bertscore_f1: "86.9%"
+    exact_match: "20.8%"
+    notes: "Best result — epoch 6 checkpoint used for final eval"
