@@ -1,0 +1,318 @@
+#  experiment 1 — baseline (donut SEQ2SEQ)
+#  result of experiment1 : Failed to generalize. Wrong architecture for our VQA dataset. which was praposed in the report.
+
+experiment_1:
+  name: "donut baseline"
+  status: "underperformed"
+  details: >
+    While donut model excels at form parsing, it struggled with open-ended
+    financial VQA. The SEQ2SEQ architecture and rigid task-prompt
+    format (<s_docvqa>) caused the model to produce repetitive
+    and empty answers. Loss remained high and did not converge well.
+
+  model:
+    base_model: "naver-clova-ix/donut-base"
+    task_type: "SEQ_2_SEQ_LM"
+    processor: "DonutProcessor"
+
+  lora:
+    r: 16
+    alpha: 32
+    dropout: 0.05
+    bias: "none"
+    target_modules: ["q_proj", "k_proj", "v_proj", "o_proj"]
+    use_dora: false
+    use_rslora: false
+
+  tokenizer:
+    bos_token: "<s>"
+    eos_token: "</s>"
+    pad_token: "<pad>"
+    unk_token: "<unk>"
+    model_max_length: 512
+    extra_tokens: ["<s_iitcdip>", "<s_synthdog>"]
+
+  training:
+    num_epochs: 3
+    max_steps: 81
+    train_batch_size: 2
+    logging_steps: 10
+    save_steps: 200
+    best_step: 80
+    best_epoch: 2.976
+    best_loss: 46.732
+    best_learning_rate: 3.95e-05
+    best_grad_norm: 31.326
+
+  inference:
+    max_new_tokens: 128 
+    do_sample: false
+    repetition_penalty: 1.0
+    anls_threshold: 0.5
+
+#  experiment number 2 — Qwen2-VL-2B LoRA 
+#  result: Better architecture but undertrained and Loss is also unstable.
+
+experiment_2:
+  name: "Qwen2-VL-2B LoRA First Run"
+  status: "moderate"
+  details: >
+    Switching to Qwen2-VL-2B-Instruct which is a causal vision-language model natively has been designed for
+    multimodal instruction following. The LoRA adapter targeted all
+    13 linear modules giving broader coverage. However, the pixel
+    budget (min/max pixels) was set conservatively and the training
+    configuration was not yet tuned, leading to moderate performance.
+    The model could answer financial questions but lacked precision
+    on numerical and tabular data.
+
+  model:
+    base_model: "Qwen/Qwen2-VL-2B-Instruct"
+    task_type: "CAUSAL_LM"
+    processor: "Qwen2VLProcessor"
+    tokenizer: "Qwen2Tokenizer"
+
+  lora:
+    r: 8
+    alpha: 16
+    dropout: 0.05
+    bias: "none"
+    target_modules:
+      - "q_proj"
+      - "k_proj"
+      - "v_proj"
+      - "o_proj"
+      - "gate_proj"
+      - "up_proj"
+      - "down_proj"
+      - "fc1"
+      - "fc2"
+      - "mlp.0"
+      - "mlp.2"
+      - "attn.proj"
+      - "qkv"
+    peft_type: "LORA"
+    peft_version: "0.18.1"
+    use_dora: false
+    use_rslora: false
+    inference_mode: true
+
+  tokenizer:
+    eos_token: "<|im_end|>"
+    pad_token: "<|endoftext|>"
+    bos_token: null
+    unk_token: null
+    model_max_length: 32768
+    padding_side: "left"
+    processor_class: "Qwen2VLProcessor"
+
+  image_processor:
+    type: "Qwen2VLImageProcessor"
+    min_pixels: 100352
+    max_pixels: 200704
+    patch_size: 14
+    merge_size: 2
+    temporal_patch_size: 2
+    image_mean: [0.48145466, 0.4578275, 0.40821073]
+    image_std: [0.26862954, 0.26130258, 0.27577711]
+    do_normalize: true
+    do_rescale: true
+    do_resize: true
+    do_convert_rgb: true
+    rescale_factor: 0.00392156862745098
+
+  inference:
+    max_new_tokens: 128
+    do_sample: false
+    repetition_penalty: 1.1
+    anls_threshold: 0.5
+    system_prompt: >
+      You are a financial document expert.
+      Answer the question based on the document image.
+
+
+#  Experiment 3 — Qwen2-VL-2B LoRA (Tuned Run)
+#  result: Improved stability but still limited by image resolution.
+
+experiment_3:
+  name: "Qwen2-VL-2B LoRA Tuned"
+  status: "good"
+  details: >
+    kept the same Qwen2-VL architecture but refined the image preprocessing settings and
+    confirmed the adapter config. Training was more stable and validation loss
+    trended downward. Performance on token F1 improved
+    noticeably, especially on text-heavy financial charts.
+
+  model:
+    base_model: "Qwen/Qwen2-VL-2B-Instruct"
+    task_type: "CAUSAL_LM"
+    processor: "Qwen2VLProcessor"
+
+  lora:
+    r: 8
+    alpha: 16
+    dropout: 0.05
+    bias: "none"
+    target_modules:
+      - "q_proj"
+      - "k_proj"
+      - "v_proj"
+      - "o_proj"
+      - "gate_proj"
+      - "up_proj"
+      - "down_proj"
+      - "fc1"
+      - "fc2"
+      - "mlp.0"
+      - "mlp.2"
+      - "attn.proj"
+      - "qkv"
+    peft_version: "0.18.1"
+    use_dora: false
+    use_rslora: false
+
+  image_processor:
+    type: "Qwen2VLImageProcessor"
+    min_pixels: 100352
+    max_pixels: 200704
+    patch_size: 14
+    merge_size: 2
+    temporal_patch_size: 2
+    image_mean: [0.48145466, 0.4578275, 0.40821073]
+    image_std: [0.26862954, 0.26130258, 0.27577711]
+
+  inference:
+    max_new_tokens: 128
+    do_sample: false
+    repetition_penalty: 1.1
+    anls_threshold: 0.5
+
+
+#  experiment 4 — Qwen2-VL-2B LoRA GPU Optimized (BEST)
+#  results of experiment 4: OUTPERFORMED all previous experiments.
+
+experiment_4:
+  name: "Qwen2-VL-2B LoRA GPU Optimized"
+  status: "best"
+  details: >
+
+    1. higher image resolution— min_pixels raised from 100352
+       to 100352 (128x28x28) and max_pixels from 200704 to
+       256x28x28, allowing the model to see finer details in
+       dense financial tables and charts.
+
+    2. optimized training loop — gradient accumulation of 8
+       steps gave an effective batch size of 8 on a T4 GPU,
+       stabilizing gradient updates. 
+
+    3. larger data set — 3000 training
+       samples with proper shuffling
+       and a fixed seed (42) ensured diverse coverage of
+       financial document types: balance sheets, income
+       statements, earnings reports, and charts.
+
+    The result lower validation loss, higher
+    Token F1, and more precise numerical answer
+
+  model:
+    base_model: "Qwen/Qwen2-VL-2B-Instruct"
+    task_type: "CAUSAL_LM"
+    processor: "Qwen2VLProcessor"
+    tokenizer: "Qwen2Tokenizer"
+    dtype: "bfloat16"
+
+  image_processor:
+    min_pixels: 100352    # 128 * 28 * 28
+    max_pixels: 200704    # 256 * 28 * 28
+    patch_size: 14
+    merge_size: 2
+
+  lora:
+    r: 8
+    alpha: 16
+    dropout: 0.05
+    bias: "none"
+    target_modules: "all-linear"
+    peft_version: "0.18.1"
+    use_dora: false
+    use_rslora: false
+
+  dataset:
+    name: "sujet-ai/Sujet-Finance-QA-Vision-100k"
+    split: "train"
+    train_samples: 3000
+    val_samples: 200
+    seed: 42
+
+  dataloader:
+    batch_size: 1
+    num_workers: 0
+    max_seq_len: 768
+
+  training:
+    num_epochs: 3
+    learning_rate: 2.0e-4
+    weight_decay: 0.01
+    grad_clip: 1.0
+    accumulation_steps: 8       
+    lr_warmup_pct: 0.1
+    
+
+  logging:
+    log_every: 20
+    eval_max_batches: 15
+    eval_metric_samples: 50
+
+  inference:
+    max_new_tokens: 128
+    do_sample: false
+    repetition_penalty: 1.1
+    anls_threshold: 0.5
+    system_prompt: >
+      You are a financial document expert.
+      Answer the question based on the document image.
+
+
+
+#  summary:
+  
+
+  progression:
+    - experiment: 1
+      model: "naver-clova-ix/donut-base"
+      architecture: "SEQ2SEQ"
+      lora_r: 16
+      lora_alpha: 32
+      target_modules: 4
+      verdict: "Wrong architecture for open-ended VQA"
+
+    - experiment: 2
+      model: "Qwen/Qwen2-VL-2B-Instruct"
+      architecture: "CAUSAL_LM"
+      lora_r: 8
+      lora_alpha: 16
+      target_modules: 13
+      verdict: "Right model, undertrained and untuned"
+
+    - experiment: 3
+      model: "Qwen/Qwen2-VL-2B-Instruct"
+      architecture: "CAUSAL_LM"
+      lora_r: 8
+      lora_alpha: 16
+      target_modules: 13
+      verdict: "Stable training, limited by resolution"
+
+    - experiment: 4
+      model: "Qwen/Qwen2-VL-2B-Instruct"
+      architecture: "CAUSAL_LM"
+      lora_r: 8
+      lora_alpha: 16
+      target_modules: "all-linear"
+      effective_batch_size: 8
+      train_samples: 3000
+      verdict: " GPU optimized, highest F1 and ANLS"
+
+  key_improvements_exp4_over_exp1:
+    - "switched from SEQ2SEQ (Donut) to Qwen2-VL"
+    - "increased LoRA target modules from 4 to all-linear"
+    - "added gradient accumulation (effective batch size of 8)"
+    - "3x more training samples "
